@@ -19,6 +19,7 @@ def cadastrar_animal():
     novo_animal = Animal(
         nome=nome,
         especie=especie,
+        sexo=dados.get("sexo"),
         raca=dados.get("raca"),
         idade=dados.get("idade"),
         foto_url=dados.get("foto_url"),
