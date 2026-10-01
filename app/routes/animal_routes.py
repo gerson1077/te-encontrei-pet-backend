@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required
 
 from app.extensions import db
 from app.models.animal import Animal
@@ -7,6 +8,7 @@ animal_bp = Blueprint("animal_bp", __name__, url_prefix="/animais")
 
 
 @animal_bp.post("")
+@jwt_required()
 def cadastrar_animal():
     dados = request.get_json(silent=True) or {}
 
@@ -43,3 +45,16 @@ def obter_animal(animal_id):
     if not animal:
         return jsonify({"erro": "Animal não encontrado."}), 404
     return jsonify(animal.to_dict()), 200
+
+
+@animal_bp.delete("/<string:animal_id>")
+@jwt_required()
+def remover_animal(animal_id):
+    animal = Animal.query.get(animal_id)
+    if not animal:
+        return jsonify({"erro": "Animal não encontrado."}), 404
+
+    db.session.delete(animal)
+    db.session.commit()
+
+    return jsonify({"mensagem": "Animal removido com sucesso."}), 200
