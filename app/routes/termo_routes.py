@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
@@ -24,12 +26,7 @@ def assinar_termo():
     if not animal:
         return jsonify({"erro": "Animal não encontrado."}), 404
 
-    novo_termo = Termo(
-        usuario_id=usuario_id,
-        animal_id=animal_id,
-        aceite=True,
-    )
-
+    novo_termo = Termo(usuario_id=usuario_id, animal_id=animal_id, aceite=True)
     db.session.add(novo_termo)
     db.session.commit()
 
@@ -40,3 +37,39 @@ def assinar_termo():
 def listar_termos_do_animal(animal_id):
     termos = Termo.query.filter_by(animal_id=animal_id).all()
     return jsonify([t.to_dict() for t in termos]), 200
+
+
+@termo_bp.get("/meus")
+@jwt_required()
+def listar_meus_termos():
+    """Termos do usuário logado, com dados do animal e status do pagamento."""
+    usuario_id = get_jwt_identity()
+    termos = (
+        Termo.query.filter_by(usuario_id=usuario_id)
+        .order_by(Termo.criado_em.desc())
+        .all()
+    )
+    return jsonify([t.to_dict_com_animal() for t in termos]), 200
+
+
+@termo_bp.post("/<string:termo_id>/pagamento")
+@jwt_required()
+def confirmar_pagamento(termo_id):
+    """Pagamento SIMULADO da taxa de colaboração: pendente -> pago."""
+    usuario_id = get_jwt_identity()
+
+    termo = Termo.query.get(termo_id)
+    if not termo:
+        return jsonify({"erro": "Termo não encontrado."}), 404
+
+    if termo.usuario_id != usuario_id:
+        return jsonify({"erro": "Você não tem permissão para pagar este termo."}), 403
+
+    if termo.status_pagamento == "pago":
+        return jsonify({"erro": "Este pagamento já foi confirmado."}), 409
+
+    termo.status_pagamento = "pago"
+    termo.pago_em = datetime.utcnow()
+    db.session.commit()
+
+    return jsonify(termo.to_dict_com_animal()), 200
